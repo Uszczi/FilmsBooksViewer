@@ -3,7 +3,7 @@ import glob
 import os
 import re
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, auto
 
 HELP_ITEMS = [
     ("q", "Quit"),
@@ -20,12 +20,28 @@ HELP_ITEMS = [
 BASE_PATH = os.path.expanduser("~/zetel/Zettelkasten/")
 
 
+_store: dict = {}
+
+
 class TabsEnum(Enum):
     films = "Films"
     books = "Books"
 
 
 TABS = (TabsEnum.films, TabsEnum.books)
+
+
+class ValuesEnum(Enum):
+    scroll_offset = auto()
+    max_offset = auto()
+
+
+def set(name: ValuesEnum, active_tab: int, value):
+    _store[(name, active_tab)] = value
+
+
+def get(name: ValuesEnum, active_tab: int, default=0):
+    return _store.get((name, active_tab), default)
 
 
 @dataclass
@@ -105,6 +121,9 @@ class BookEntry(EntryBase):
         return f"{self.title} {self.author} {self.read_year}"
 
 
+TYPES = type[FilmEntry] | type[BookEntry]
+
+
 def create_main_win(stdscr: curses.window):
     max_height, max_width = stdscr.getmaxyx()
     win_h, win_w = max_height - 4, max_width - 2
@@ -141,6 +160,45 @@ def draw_tab(win, y, x, label, active):
 
     tab_win.addstr(1, 2, label, prop)
     return tab_win
+
+
+def draw_add_entry(win: curses.window, entry_type: TYPES) -> TYPES:
+    pass
+
+
+def draw_scroll(win: curses.window, scroll_offset: int, max_lines: int) -> None:
+    win_h, win_w = win.getmaxyx()
+
+    # Available height for scrollbar (excluding borders and tab area)
+    available_h = win_h - 6  # Account for tabs (3) + borders + help bar
+
+    if max_lines <= available_h:
+        # Content fits, no scrollbar needed
+        return
+
+    # Calculate thumb size (proportional to visible area vs total content)
+    thumb_size = max(1, int(available_h * available_h / max_lines))
+
+    # Calculate thumb position based on scroll offset
+    max_scroll = max_lines - available_h
+    if max_scroll > 0:
+        thumb_pos = int((scroll_offset / max_scroll) * (available_h - thumb_size))
+    else:
+        thumb_pos = 0
+
+    # Draw scrollbar track and thumb on right side
+    x = win_w - 4  # Position inside right border
+    for y in range(available_h):
+        actual_y = y + 3  # Offset for tab area (3 rows)
+        try:
+            if y >= thumb_pos and y < thumb_pos + thumb_size:
+                win.addch(actual_y, x, "█", curses.color_pair(2))  # Thumb
+            else:
+                win.addch(actual_y, x, "│")  # Track
+        except curses.error:
+            pass  # Ignore errors at edge of screen
+
+    win.refresh()
 
 
 def draw_help_bar(win):
@@ -237,16 +295,12 @@ def main(stdscr: curses.window):
 
     films = read_files("Films [0-9][0-9][0-9][0-9]", FilmEntry)
     books = read_files("Books [0-9][0-9][0-9][0-9]", BookEntry)
+    data = [films, books]
 
     active_tab = 0
-    scroll_offset = 0
-
-    if active_tab == 0:
-        max_offset = len(films) - 1
-    elif active_tab == 1:
-        max_offset = len(books) - 1
 
     while True:
+
         win = create_main_win(stdscr)
         max_height, _max_width = win.getmaxyx()
 
@@ -254,28 +308,49 @@ def main(stdscr: curses.window):
         books_pad = create_pad(win, books)
         pads = [films_pad, books_pad]
 
+        if active_tab == 0:
+            set(ValuesEnum.max_offset, 0, len(films) - 1)
+        elif active_tab == 1:
+            set(ValuesEnum.max_offset, 1, len(books) - 1)
+
         draw_tabs(stdscr, active_tab)
         draw_help_bar(stdscr)
+
         pad = pads[active_tab]
-        draw_pad(win, pad, scroll_offset)
+        draw_pad(win, pad, get(ValuesEnum.scroll_offset, active_tab))
+        draw_scroll(
+            stdscr, get(ValuesEnum.scroll_offset, active_tab), len(data[active_tab])
+        )
+
+        curses.curs_set(0)
 
         key = stdscr.getch()
         if key == ord("q"):
             break
         elif key in (ord("h"), curses.KEY_LEFT):
             active_tab = (active_tab - 1) % len(TABS)
-            scroll_offset = 0
         elif key in (ord("l"), curses.KEY_RIGHT):
             active_tab = (active_tab + 1) % len(TABS)
-            scroll_offset = 0
         elif key in (ord("j"), curses.KEY_DOWN):
-            scroll_offset = min(scroll_offset + 1, max_offset)
+            scroll_offset = min(
+                get(ValuesEnum.scroll_offset, active_tab) + 1,
+                get(ValuesEnum.max_offset, active_tab),
+            )
+            set(ValuesEnum.scroll_offset, active_tab, scroll_offset)
         elif key in (ord("k"), curses.KEY_UP):
-            scroll_offset = max(scroll_offset - 1, 0)
-        elif key in (ord("d"), curses.KEY_DOWN):
-            scroll_offset = min(scroll_offset + max_height // 2, max_offset)
-        elif key in (ord("u"), curses.KEY_UP):
-            scroll_offset = max(scroll_offset - max_height // 2, 0)
+            scroll_offset = max(get(ValuesEnum.scroll_offset, active_tab) - 1, 0)
+            set(ValuesEnum.scroll_offset, active_tab, scroll_offset)
+        elif key in (ord("d"),):
+            scroll_offset = min(
+                get(ValuesEnum.scroll_offset, active_tab) + max_height // 2,
+                get(ValuesEnum.max_offset, active_tab),
+            )
+            set(ValuesEnum.scroll_offset, active_tab, scroll_offset)
+        elif key in (ord("u"),):
+            scroll_offset = max(
+                get(ValuesEnum.scroll_offset, active_tab) - max_height // 2, 0
+            )
+            set(ValuesEnum.scroll_offset, active_tab, scroll_offset)
 
 
 if __name__ == "__main__":
@@ -284,3 +359,6 @@ if __name__ == "__main__":
 
 def cli():
     curses.wrapper(main)
+
+
+# Fix border
