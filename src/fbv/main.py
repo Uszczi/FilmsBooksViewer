@@ -51,7 +51,7 @@ def get(
     name: ValuesEnum,
     active_tab: int,
 ):
-    return _store.get((name, active_tab))
+    return _store.get((name, active_tab), 0)
 
 
 @dataclass
