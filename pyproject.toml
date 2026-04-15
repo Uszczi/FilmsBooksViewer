@@ -1,2 +1,22 @@
+[project]
+name = "filmsbooksviewer"
+version = "0.1.0"
+description = "A TUI application for viewing films and books from a zettelkasten"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Roalec" }
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fbv"]
+
+[project.scripts]
+fbv = "fbv.main:cli"
+
+[build-system]
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
 [tool.ruff.lint]
 extend-select = ["I"]

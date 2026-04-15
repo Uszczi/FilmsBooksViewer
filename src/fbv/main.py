@@ -280,3 +280,7 @@ def main(stdscr: curses.window):
 
 if __name__ == "__main__":
     curses.wrapper(main)
+
+
+def cli():
+    curses.wrapper(main)
