@@ -1,4 +1,5 @@
 import curses
+import datetime
 import glob
 import os
 import re
@@ -162,8 +163,162 @@ def draw_tab(win, y, x, label, active):
     return tab_win
 
 
-def draw_add_entry(win: curses.window, entry_type: TYPES) -> TYPES:
-    pass
+def draw_add_entry(
+    win: curses.window, entry_type: TYPES
+) -> FilmEntry | BookEntry | None:
+    """
+    Draw a dialog for adding a new entry (Film or Book).
+    Returns the created entry or None if cancelled.
+    """
+
+    current_year = datetime.datetime.now().year
+
+    # Determine fields based on entry type
+    if entry_type == FilmEntry:
+        fields = [
+            ("Title", ""),
+            ("Director", ""),
+            ("Production Year", ""),
+        ]
+        title_text = "Add Film Entry"
+    else:  # BookEntry
+        fields = [
+            ("Title", ""),
+            ("Author", ""),
+        ]
+        title_text = "Add Book Entry"
+
+    # Create centered dialog
+    max_h, max_w = win.getmaxyx()
+    dialog_h = len(fields) * 2 + 8  # fields + title + buttons + padding
+    dialog_w = 60
+    start_y = max(0, (max_h - dialog_h) // 2)
+    start_x = max(0, (max_w - dialog_w) // 2)
+
+    # Create dialog window
+    dialog = curses.newwin(dialog_h, dialog_w, start_y, start_x)
+    dialog.keypad(True)
+
+    current_field = 0
+    field_values = [""] * len(fields)
+
+    while True:
+        dialog.clear()
+        dialog.border()
+
+        # Draw title
+        dialog.addstr(
+            1,
+            (dialog_w - len(title_text)) // 2,
+            title_text,
+            curses.A_BOLD | curses.color_pair(4),
+        )
+
+        # Draw fields
+        for idx, (label, _) in enumerate(fields):
+            y = 3 + idx * 2
+            dialog.addstr(y, 2, f"{label}:")
+
+            # Draw input box
+            input_x = 2
+            input_y = y + 1
+            input_w = dialog_w - 4
+
+            if idx == current_field:
+                dialog.attron(curses.color_pair(5))
+
+            dialog.addstr(input_y, input_x, " " * (input_w - 1))
+            display_value = field_values[idx][: input_w - 2]
+            dialog.addstr(input_y, input_x, display_value)
+
+            if idx == current_field:
+                dialog.attroff(curses.color_pair(5))
+
+        # Draw buttons
+        button_y = dialog_h - 3
+        cancel_x = dialog_w // 2 - 15
+        accept_x = dialog_w // 2 + 5
+
+        # Cancel button
+        if current_field == len(fields):
+            dialog.addstr(button_y, cancel_x, "[ Cancel ]", curses.A_REVERSE)
+        else:
+            dialog.addstr(button_y, cancel_x, "[ Cancel ]")
+
+        # Accept button
+        if current_field == len(fields) + 1:
+            dialog.addstr(button_y, accept_x, "[ Accept ]", curses.A_REVERSE)
+        else:
+            dialog.addstr(button_y, accept_x, "[ Accept ]")
+
+        # Draw help text
+        help_text = "Tab/↑↓: Navigate | Enter: Select | Esc: Cancel"
+        try:
+            dialog.addstr(
+                dialog_h - 1,
+                max(1, (dialog_w - len(help_text)) // 2),
+                help_text[: dialog_w - 2],
+                curses.A_DIM,
+            )
+        except curses.error:
+            pass
+
+        dialog.refresh()
+
+        key = dialog.getch()
+
+        if key == 27:  # ESC
+            return None
+        elif key in (curses.KEY_DOWN, 9):  # Down arrow or Tab
+            current_field = (current_field + 1) % (len(fields) + 2)
+        elif key in (curses.KEY_UP, curses.KEY_BTAB):  # Up arrow or Shift+Tab
+            current_field = (current_field - 1) % (len(fields) + 2)
+        elif key == 10:  # Enter
+            if current_field == len(fields):  # Cancel button
+                return None
+            elif current_field == len(fields) + 1:  # Accept button
+                # Validate and create entry
+                if entry_type == FilmEntry:
+                    title = field_values[0].strip()
+                    director = field_values[1].strip()
+                    try:
+                        production_year = (
+                            int(field_values[2].strip())
+                            if field_values[2].strip()
+                            else 0
+                        )
+                    except ValueError:
+                        production_year = 0
+
+                    if not title:
+                        continue
+
+                    return FilmEntry(
+                        title=title,
+                        director=director,
+                        watch_year=current_year,
+                        production_year=production_year,
+                        is_valid=bool(title and director and production_year),
+                    )
+                else:  # BookEntry
+                    title = field_values[0].strip()
+                    author = field_values[1].strip()
+
+                    if not title:
+                        continue
+
+                    return BookEntry(
+                        title=title,
+                        author=author,
+                        read_year=current_year,
+                        is_valid=bool(title and author),
+                    )
+        elif current_field < len(fields):
+            # Handle text input for current field
+            if key == curses.KEY_BACKSPACE or key == 127:
+                field_values[current_field] = field_values[current_field][:-1]
+            elif 32 <= key <= 126:  # Printable characters
+                field_values[current_field] += chr(key)
 
 
 def draw_scroll(win: curses.window, scroll_offset: int, max_lines: int) -> None:
@@ -352,6 +507,13 @@ def main(stdscr: curses.window):
                 get(ValuesEnum.scroll_offset, active_tab) - max_height // 2, 0
             )
             set(ValuesEnum.scroll_offset, active_tab, scroll_offset)
+        elif key in (ord("a"),):
+            entry_type = (FilmEntry, BookEntry)[active_tab]
+
+            new_entry = draw_add_entry(stdscr, entry_type)
+
+            if new_entry is not None:
+                data[active_tab].append(new_entry)
 
 
 if __name__ == "__main__":
