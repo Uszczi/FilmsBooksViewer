@@ -35,6 +35,7 @@ TABS = (TabsEnum.films, TabsEnum.books)
 class ValuesEnum(Enum):
     scroll_offset = auto()
     max_offset = auto()
+    current_line = auto()
 
 
 def set(name: ValuesEnum, active_tab: int, value):
@@ -383,7 +384,11 @@ def draw_help_bar(win):
     win.refresh()
 
 
-def create_pad(win: curses.window, entries: list[FilmEntry | BookEntry]):
+def create_pad(
+    win: curses.window,
+    entries: list[FilmEntry | BookEntry],
+    current_line: int,
+):
     win_h, win_w = win.getmaxyx()
 
     pad_height = max(len(entries), win_h - 4)
@@ -392,10 +397,14 @@ def create_pad(win: curses.window, entries: list[FilmEntry | BookEntry]):
     for idx, entry in enumerate(entries):
         text = entry.display()
 
+        decorate = 0
+        if idx == current_line:
+            decorate = decorate | curses.color_pair(4)
+
         if entry.is_valid:
-            pad.addstr(idx, 0, text)
+            pad.addstr(idx, 0, text, decorate)
         else:
-            pad.addstr(idx, 0, text, curses.color_pair(1))
+            pad.addstr(idx, 0, text, decorate | curses.color_pair(1))
 
     return pad
 
@@ -453,14 +462,15 @@ def main(stdscr: curses.window):
     data = [films, books]
 
     active_tab = 0
+    active_line = 0
 
     while True:
 
         win = create_main_win(stdscr)
         max_height, _max_width = win.getmaxyx()
 
-        films_pad = create_pad(win, films)
-        books_pad = create_pad(win, books)
+        films_pad = create_pad(win, films, get(ValuesEnum.current_line, active_tab))
+        books_pad = create_pad(win, books, get(ValuesEnum.current_line, active_tab))
         pads = [films_pad, books_pad]
 
         if active_tab == 0:
@@ -488,12 +498,20 @@ def main(stdscr: curses.window):
         elif key in (ord("l"), curses.KEY_RIGHT):
             active_tab = (active_tab + 1) % len(TABS)
         elif key in (ord("j"), curses.KEY_DOWN):
+            current_line = min(
+                get(ValuesEnum.current_line, active_tab) + 1, len(data[active_tab]) - 1
+            )
+            set(ValuesEnum.current_line, active_tab, current_line)
+
             scroll_offset = min(
                 get(ValuesEnum.scroll_offset, active_tab) + 1,
                 get(ValuesEnum.max_offset, active_tab),
             )
             set(ValuesEnum.scroll_offset, active_tab, scroll_offset)
         elif key in (ord("k"), curses.KEY_UP):
+            current_line = max(get(ValuesEnum.current_line, active_tab) - 1, 0)
+            set(ValuesEnum.current_line, active_tab, current_line)
+
             scroll_offset = max(get(ValuesEnum.scroll_offset, active_tab) - 1, 0)
             set(ValuesEnum.scroll_offset, active_tab, scroll_offset)
         elif key in (ord("d"),):
