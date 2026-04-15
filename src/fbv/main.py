@@ -516,9 +516,9 @@ def main(stdscr: curses.window):
                 data[active_tab].append(new_entry)
 
 
-if __name__ == "__main__":
-    curses.wrapper(main)
-
-
 def cli():
     curses.wrapper(main)
+
+
+if __name__ == "__main__":
+    cli()
