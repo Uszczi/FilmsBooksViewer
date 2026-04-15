@@ -515,7 +515,7 @@ def main(stdscr: curses.window):
                 _g(ValuesEnum.scroll_offset) + 1,
                 _g(ValuesEnum.max_offset),
             )
-           _s(ValuesEnum.scroll_offset, scroll_offset)
+            _s(ValuesEnum.scroll_offset, scroll_offset)
         elif key in (ord("k"), curses.KEY_UP):
             current_line = max(get(ValuesEnum.current_line, active_tab) - 1, 0)
             _s(ValuesEnum.current_line, current_line)
