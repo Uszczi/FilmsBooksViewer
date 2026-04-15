@@ -1,4 +1,3 @@
-from functools import partial
 import curses
 import datetime
 import glob
@@ -6,6 +5,7 @@ import os
 import re
 from dataclasses import dataclass
 from enum import Enum, auto
+from functools import partial
 
 HELP_ITEMS = [
     ("q", "Quit"),
