@@ -1,3 +1,4 @@
+from functools import partial
 import curses
 import datetime
 import glob
@@ -38,12 +39,19 @@ class ValuesEnum(Enum):
     current_line = auto()
 
 
-def set(name: ValuesEnum, active_tab: int, value):
+def set(
+    name: ValuesEnum,
+    value,
+    active_tab: int,
+):
     _store[(name, active_tab)] = value
 
 
-def get(name: ValuesEnum, active_tab: int, default=0):
-    return _store.get((name, active_tab), default)
+def get(
+    name: ValuesEnum,
+    active_tab: int,
+):
+    return _store.get((name, active_tab))
 
 
 @dataclass
@@ -463,29 +471,30 @@ def main(stdscr: curses.window):
 
     active_tab = 0
 
+    _s = partial(set, active_tab=active_tab)
+    _g = partial(get, active_tab=active_tab)
+
     while True:
 
         win = create_main_win(stdscr)
         max_height, _max_width = win.getmaxyx()
 
-        films_pad = create_pad(win, films, get(ValuesEnum.current_line, active_tab))
-        books_pad = create_pad(win, books, get(ValuesEnum.current_line, active_tab))
+        films_pad = create_pad(win, films, _g(ValuesEnum.current_line))
+        books_pad = create_pad(win, books, _g(ValuesEnum.current_line))
         pads = [films_pad, books_pad]
 
         if active_tab == 0:
-            set(ValuesEnum.max_offset, 0, len(films) - 1)
+            _s(ValuesEnum.max_offset, len(films) - 1)
         elif active_tab == 1:
-            set(ValuesEnum.max_offset, 1, len(books) - 1)
+            _s(ValuesEnum.max_offset, len(books) - 1)
 
         draw_tabs(stdscr, active_tab)
         win.refresh()
         draw_help_bar(stdscr)
 
         pad = pads[active_tab]
-        draw_pad(win, pad, get(ValuesEnum.scroll_offset, active_tab))
-        draw_scroll(
-            stdscr, get(ValuesEnum.scroll_offset, active_tab), len(data[active_tab])
-        )
+        draw_pad(win, pad, _g(ValuesEnum.scroll_offset))
+        draw_scroll(stdscr, _g(ValuesEnum.scroll_offset), len(data[active_tab]))
 
         curses.curs_set(0)
 
@@ -498,43 +507,41 @@ def main(stdscr: curses.window):
             active_tab = (active_tab + 1) % len(TABS)
         elif key in (ord("j"), curses.KEY_DOWN):
             current_line = min(
-                get(ValuesEnum.current_line, active_tab) + 1, len(data[active_tab]) - 1
+                _g(ValuesEnum.current_line) + 1, len(data[active_tab]) - 1
             )
-            set(ValuesEnum.current_line, active_tab, current_line)
+            _s(ValuesEnum.current_line, current_line)
 
             scroll_offset = min(
-                get(ValuesEnum.scroll_offset, active_tab) + 1,
-                get(ValuesEnum.max_offset, active_tab),
+                _g(ValuesEnum.scroll_offset) + 1,
+                _g(ValuesEnum.max_offset),
             )
-            set(ValuesEnum.scroll_offset, active_tab, scroll_offset)
+           _s(ValuesEnum.scroll_offset, scroll_offset)
         elif key in (ord("k"), curses.KEY_UP):
             current_line = max(get(ValuesEnum.current_line, active_tab) - 1, 0)
-            set(ValuesEnum.current_line, active_tab, current_line)
+            _s(ValuesEnum.current_line, current_line)
 
             scroll_offset = max(get(ValuesEnum.scroll_offset, active_tab) - 1, 0)
-            set(ValuesEnum.scroll_offset, active_tab, scroll_offset)
+            _s(ValuesEnum.scroll_offset, scroll_offset)
         elif key in (ord("d"),):
             offset = max_height // 2
             scroll_offset = min(
-                get(ValuesEnum.scroll_offset, active_tab) + offset,
-                get(ValuesEnum.max_offset, active_tab),
+                _g(ValuesEnum.scroll_offset) + offset,
+                _g(ValuesEnum.max_offset),
             )
-            set(
+            _s(
                 ValuesEnum.current_line,
-                active_tab,
                 min(
-                    get(ValuesEnum.current_line, active_tab) + offset,
-                    get(ValuesEnum.max_offset, active_tab),
+                    _g(ValuesEnum.current_line) + offset,
+                    _g(ValuesEnum.max_offset),
                 ),
             )
-            set(ValuesEnum.scroll_offset, active_tab, scroll_offset)
+            _s(ValuesEnum.scroll_offset, scroll_offset)
         elif key in (ord("u"),):
             offset = max_height // 2
             scroll_offset = max(get(ValuesEnum.scroll_offset, active_tab) - offset, 0)
-            set(ValuesEnum.scroll_offset, active_tab, scroll_offset)
-            set(
+            _s(ValuesEnum.scroll_offset, scroll_offset)
+            _s(
                 ValuesEnum.current_line,
-                active_tab,
                 max(get(ValuesEnum.current_line, active_tab) - offset, 0),
             )
         elif key in (ord("a"),):
