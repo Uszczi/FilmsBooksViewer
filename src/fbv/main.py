@@ -314,6 +314,7 @@ def main(stdscr: curses.window):
             set(ValuesEnum.max_offset, 1, len(books) - 1)
 
         draw_tabs(stdscr, active_tab)
+        win.refresh()
         draw_help_bar(stdscr)
 
         pad = pads[active_tab]
