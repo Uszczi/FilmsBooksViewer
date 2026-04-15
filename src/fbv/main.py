@@ -462,7 +462,6 @@ def main(stdscr: curses.window):
     data = [films, books]
 
     active_tab = 0
-    active_line = 0
 
     while True:
 
@@ -515,16 +514,29 @@ def main(stdscr: curses.window):
             scroll_offset = max(get(ValuesEnum.scroll_offset, active_tab) - 1, 0)
             set(ValuesEnum.scroll_offset, active_tab, scroll_offset)
         elif key in (ord("d"),):
+            offset = max_height // 2
             scroll_offset = min(
-                get(ValuesEnum.scroll_offset, active_tab) + max_height // 2,
+                get(ValuesEnum.scroll_offset, active_tab) + offset,
                 get(ValuesEnum.max_offset, active_tab),
+            )
+            set(
+                ValuesEnum.current_line,
+                active_tab,
+                min(
+                    get(ValuesEnum.current_line, active_tab) + offset,
+                    get(ValuesEnum.max_offset, active_tab),
+                ),
             )
             set(ValuesEnum.scroll_offset, active_tab, scroll_offset)
         elif key in (ord("u"),):
-            scroll_offset = max(
-                get(ValuesEnum.scroll_offset, active_tab) - max_height // 2, 0
-            )
+            offset = max_height // 2
+            scroll_offset = max(get(ValuesEnum.scroll_offset, active_tab) - offset, 0)
             set(ValuesEnum.scroll_offset, active_tab, scroll_offset)
+            set(
+                ValuesEnum.current_line,
+                active_tab,
+                max(get(ValuesEnum.current_line, active_tab) - offset, 0),
+            )
         elif key in (ord("a"),):
             entry_type = (FilmEntry, BookEntry)[active_tab]
 
