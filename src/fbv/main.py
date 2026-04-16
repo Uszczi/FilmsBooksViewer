@@ -430,10 +430,6 @@ def draw_pad(
 def read_files(
     pattern: str, result_type: type[FilmEntry] | type[BookEntry]
 ) -> list[FilmEntry | BookEntry]:
-    try:
-        year = int(pattern.split(" ")[0])
-    except ValueError:
-        year = 0
 
     file_pattern = os.path.join(BASE_PATH, f"{pattern}.md")
     files = sorted(glob.glob(file_pattern))
@@ -441,6 +437,11 @@ def read_files(
     entries = []
     for file_path in files:
         with open(file_path, "r") as f:
+            try:
+                year = int(f.name.split(" ")[1].removesuffix(".md"))
+            except ValueError:
+                year = 0
+
             for line in f:
                 line = line.strip()
                 if line and not line.startswith("-"):
@@ -517,10 +518,10 @@ def main(stdscr: curses.window):
             )
             _s(ValuesEnum.scroll_offset, scroll_offset)
         elif key in (ord("k"), curses.KEY_UP):
-            current_line = max(get(ValuesEnum.current_line, active_tab) - 1, 0)
+            current_line = max(_g(ValuesEnum.current_line) - 1, 0)
             _s(ValuesEnum.current_line, current_line)
 
-            scroll_offset = max(get(ValuesEnum.scroll_offset, active_tab) - 1, 0)
+            scroll_offset = max(_g(ValuesEnum.scroll_offset) - 1, 0)
             _s(ValuesEnum.scroll_offset, scroll_offset)
         elif key in (ord("d"),):
             offset = max_height // 2
@@ -538,11 +539,11 @@ def main(stdscr: curses.window):
             _s(ValuesEnum.scroll_offset, scroll_offset)
         elif key in (ord("u"),):
             offset = max_height // 2
-            scroll_offset = max(get(ValuesEnum.scroll_offset, active_tab) - offset, 0)
+            scroll_offset = max(_g(ValuesEnum.scroll_offset) - offset, 0)
             _s(ValuesEnum.scroll_offset, scroll_offset)
             _s(
                 ValuesEnum.current_line,
-                max(get(ValuesEnum.current_line, active_tab) - offset, 0),
+                max(_g(ValuesEnum.current_line) - offset, 0),
             )
         elif key in (ord("a"),):
             entry_type = (FilmEntry, BookEntry)[active_tab]
