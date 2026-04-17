@@ -558,6 +558,13 @@ def main(stdscr: curses.window):
                 ValuesEnum.current_line,
                 max(_g(ValuesEnum.current_line) - offset, 0),
             )
+        elif key in (ord("g"),):
+            _s(ValuesEnum.scroll_offset, 0)
+            _s(ValuesEnum.current_line, 0)
+        elif key in (ord("G"),):
+            _s(ValuesEnum.scroll_offset, len(data[active_tab]) - 1)
+            _s(ValuesEnum.current_line, len(data[active_tab]) - 1)
+
         elif key in (ord("a"),):
             entry_type = (FilmEntry, BookEntry)[active_tab]
 
