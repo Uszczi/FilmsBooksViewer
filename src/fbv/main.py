@@ -132,6 +132,7 @@ class BookEntry(EntryBase):
 
 
 TYPES = type[FilmEntry] | type[BookEntry]
+TYPES_INS = FilmEntry | BookEntry
 
 
 def create_main_win(stdscr: curses.window):
@@ -172,17 +173,14 @@ def draw_tab(win, y, x, label, active):
     return tab_win
 
 
-def draw_add_entry(
-    win: curses.window, entry_type: TYPES
-) -> FilmEntry | BookEntry | None:
-    """
-    Draw a dialog for adding a new entry (Film or Book).
-    Returns the created entry or None if cancelled.
-    """
+def draw_edit_entry(
+    win: curses.window,
+    entry: TYPES_INS,
+) -> TYPES_INS:
+    pass
 
-    current_year = datetime.datetime.now().year
 
-    # Determine fields based on entry type
+def _get_fields(entry_type: TYPES):
     if entry_type == FilmEntry:
         fields = [
             ("Title", ""),
@@ -196,6 +194,21 @@ def draw_add_entry(
             ("Author", ""),
         ]
         title_text = "Add Book Entry"
+
+    return fields, title_text
+
+
+def draw_add_entry(
+    win: curses.window, entry_type: TYPES
+) -> FilmEntry | BookEntry | None:
+    """
+    Draw a dialog for adding a new entry (Film or Book).
+    Returns the created entry or None if cancelled.
+    """
+
+    current_year = datetime.datetime.now().year
+
+    fields, title_text = _get_fields(entry_type)
 
     # Create centered dialog
     max_h, max_w = win.getmaxyx()
